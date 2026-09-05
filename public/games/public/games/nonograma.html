@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O Símbolo — Nonograma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #12100D;
+    --panel: #1D1812;
+    --panel-edge: #2A2118;
+    --cell-empty: #241D16;
+    --cell-edge: #34291F;
+    --filled: #F2A83B;
+    --filled-soft: #F2A83B55;
+    --marked: #6b5f52;
+    --success: #7CB88F;
+    --success-soft: #7CB88F33;
+    --text-warm: #EFE6D8;
+    --text-dim2: #a99987;
+    --text-done: #4a4238;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--void);
+    background-image: radial-gradient(ellipse 80% 60% at 50% -10%, #2a2118 0%, transparent 60%);
+    color: var(--text-warm);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .rig {
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: clamp(22px, 5vw, 30px);
+    letter-spacing: 0.03em;
+    margin: 0;
+    text-align: center;
+  }
+
+  .subtitle {
+    margin-top: -8px;
+    font-size: 13px;
+    color: var(--text-dim2);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 340px;
+  }
+
+  .diff-row { display: flex; gap: 6px; }
+
+  .diff-row button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--panel-edge);
+    color: var(--text-dim2);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .diff-row button.selected {
+    color: var(--filled);
+    border-color: var(--filled);
+  }
+
+  .door {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    padding: 16px;
+    width: 100%;
+    box-shadow: 0 0 0 6px var(--void), inset 0 1px 0 #ffffff08;
+    transition: box-shadow 0.6s ease;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .door.solved {
+    box-shadow: 0 0 0 6px var(--void), 0 0 40px var(--success-soft), inset 0 1px 0 #ffffff08;
+  }
+
+  .nono-grid {
+    display: grid;
+    gap: 2px;
+    user-select: none;
+  }
+
+  .clue-corner { }
+
+  .clue-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim2);
+    line-height: 1.15;
+    padding-bottom: 3px;
+    transition: color 0.2s ease;
+  }
+
+  .clue-col.done { color: var(--text-done); }
+
+  .clue-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-dim2);
+    padding-right: 6px;
+    white-space: nowrap;
+    transition: color 0.2s ease;
+  }
+
+  .clue-row.done { color: var(--text-done); }
+
+  .cell {
+    background: var(--cell-empty);
+    border: 1px solid var(--cell-edge);
+    border-radius: 2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s ease;
+  }
+
+  .cell.filled {
+    background: var(--filled);
+    box-shadow: inset 0 0 6px #ffffff40;
+  }
+
+  .cell.marked {
+    color: var(--marked);
+    font-size: 12px;
+  }
+
+  .status {
+    min-height: 20px;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    text-align: center;
+    color: var(--success);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .status.show { opacity: 1; }
+
+  .legend {
+    font-size: 11px;
+    color: var(--text-dim2);
+    text-align: center;
+  }
+
+  .controls { display: flex; gap: 10px; width: 100%; }
+
+  button.action {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-warm);
+    border: 1px solid var(--panel-edge);
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  button.action:hover { border-color: var(--filled); background: #ffffff06; }
+
+  .door-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    background: #000000aa;
+    transition: opacity 0.3s ease;
+    z-index: 50;
+  }
+
+  .door-overlay.active { opacity: 1; pointer-events: auto; }
+
+  .door-leaf {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: linear-gradient(180deg, var(--cell-edge) 0%, #201810 100%);
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 0 30px #000000aa;
+    transition: transform 1s cubic-bezier(.6,0,.25,1);
+  }
+
+  .door-leaf.left { left: 0; transform-origin: left; }
+  .door-leaf.right { right: 0; transform-origin: right; }
+  .door-overlay.active .door-leaf.left { transform: translateX(-100%); }
+  .door-overlay.active .door-leaf.right { transform: translateX(100%); }
+
+  .door-light {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 40% 60% at 50% 50%, var(--success-soft) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 1s ease 0.4s;
+  }
+
+  .door-overlay.active .door-light { opacity: 1; }
+
+  .door-message {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.6s ease 0.9s, transform 0.6s ease 0.9s;
+  }
+
+  .door-overlay.active .door-message { opacity: 1; transform: translateY(0); }
+
+  .door-message h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--text-warm);
+    letter-spacing: 0.04em;
+    font-size: 22px;
+    margin: 0 0 18px;
+  }
+
+  .door-message button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-warm);
+    border: 1px solid var(--success);
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .door-message button:hover { background: var(--success-soft); }
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <h1>O Símbolo</h1>
+  <p class="subtitle">Use os números para descobrir quais células pintar. Cada número é uma sequência de células preenchidas seguidas, na ordem mostrada.</p>
+
+  <div class="diff-row" id="diffRow">
+    <button data-pattern="diamond">fácil</button>
+    <button data-pattern="heart" class="selected">médio</button>
+    <button data-pattern="key">difícil</button>
+  </div>
+
+  <div class="door" id="door">
+    <div class="nono-grid" id="grid"></div>
+  </div>
+
+  <p class="legend">clique para pintar · botão direito para marcar um "x" de descarte</p>
+
+  <div class="status" id="status">símbolo revelado</div>
+
+  <div class="controls">
+    <button class="action" id="resetBtn">reiniciar</button>
+  </div>
+</div>
+
+<div class="door-overlay" id="doorOverlay">
+  <div class="door-leaf left"></div>
+  <div class="door-leaf right"></div>
+  <div class="door-light"></div>
+  <div class="door-message">
+    <h2>A porta se abre</h2>
+    <button id="continueBtn">fechar</button>
+  </div>
+</div>
+
+<script>
+  const PATTERNS = {
+    diamond: {
+      size: 5,
+      cell: 46,
+      grid: [
+        [0,0,1,0,0],
+        [0,1,1,1,0],
+        [1,1,1,1,1],
+        [0,1,1,1,0],
+        [0,0,1,0,0],
+      ],
+    },
+    heart: {
+      size: 8,
+      cell: 34,
+      grid: [
+        [0,1,1,0,0,1,1,0],
+        [1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,1,0],
+        [0,0,1,1,1,1,0,0],
+        [0,0,0,1,1,0,0,0],
+        [0,0,0,0,0,0,0,0],
+      ],
+    },
+    key: {
+      size: 10,
+      cell: 27,
+      grid: [
+        [0,0,1,1,1,1,0,0,0,0],
+        [0,1,0,0,0,0,1,0,0,0],
+        [0,1,0,0,0,0,1,0,0,0],
+        [0,0,1,1,1,1,0,0,0,0],
+        [0,0,0,0,1,1,0,0,0,0],
+        [0,0,0,0,1,1,0,0,0,0],
+        [0,0,0,0,1,1,1,1,0,0],
+        [0,0,0,0,1,1,0,1,0,0],
+        [0,0,0,0,1,1,1,1,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+      ],
+    },
+  };
+
+  let currentKey = 'heart';
+  let solution = [];
+  let size = 8;
+  let userGrid = [];
+  let solved = false;
+  let rowClues = [];
+  let colClues = [];
+
+  const gridEl = document.getElementById('grid');
+  const doorEl = document.getElementById('door');
+  const statusEl = document.getElementById('status');
+  const diffRow = document.getElementById('diffRow');
+  const doorOverlay = document.getElementById('doorOverlay');
+
+  function runsOf(line) {
+    const runs = [];
+    let count = 0;
+    for (const v of line) {
+      if (v === 1) count++;
+      else { if (count > 0) runs.push(count); count = 0; }
+    }
+    if (count > 0) runs.push(count);
+    return runs.length ? runs : [0];
+  }
+
+  function runsEqual(a, b) {
+    if (a.length !== b.length) return false;
+    return a.every((v, i) => v === b[i]);
+  }
+
+  function newGame(key) {
+    currentKey = key;
+    const p = PATTERNS[key];
+    solution = p.grid;
+    size = p.size;
+    userGrid = Array.from({ length: size }, () => Array(size).fill(0));
+    solved = false;
+    doorEl.classList.remove('solved');
+    doorOverlay.classList.remove('active');
+    statusEl.classList.remove('show');
+
+    rowClues = solution.map(row => runsOf(row));
+    colClues = [];
+    for (let c = 0; c < size; c++) {
+      colClues.push(runsOf(solution.map(row => row[c])));
+    }
+
+    render(p.cell);
+  }
+
+  function render(cellPx) {
+    gridEl.style.gridTemplateColumns = `50px repeat(${size}, ${cellPx}px)`;
+    gridEl.style.gridTemplateRows = `50px repeat(${size}, ${cellPx}px)`;
+    gridEl.innerHTML = '';
+
+    const corner = document.createElement('div');
+    corner.className = 'clue-corner';
+    gridEl.appendChild(corner);
+
+    for (let c = 0; c < size; c++) {
+      const div = document.createElement('div');
+      const done = runsEqual(runsOf(userGrid.map(row => row[c])), colClues[c]);
+      div.className = 'clue-col' + (done ? ' done' : '');
+      div.innerHTML = colClues[c].join('<br>');
+      gridEl.appendChild(div);
+    }
+
+    for (let r = 0; r < size; r++) {
+      const rowClueDiv = document.createElement('div');
+      const done = runsEqual(runsOf(userGrid[r]), rowClues[r]);
+      rowClueDiv.className = 'clue-row' + (done ? ' done' : '');
+      rowClueDiv.textContent = rowClues[r].join(' ');
+      gridEl.appendChild(rowClueDiv);
+
+      for (let c = 0; c < size; c++) {
+        const cellEl = document.createElement('div');
+        const v = userGrid[r][c];
+        cellEl.className = 'cell' + (v === 1 ? ' filled' : '') + (v === 2 ? ' marked' : '');
+        if (v === 2) cellEl.textContent = '×';
+        cellEl.addEventListener('click', () => onCellClick(r, c));
+        cellEl.addEventListener('contextmenu', (e) => { e.preventDefault(); onCellMark(r, c); });
+        gridEl.appendChild(cellEl);
+      }
+    }
+  }
+
+  function onCellClick(r, c) {
+    if (solved) return;
+    userGrid[r][c] = userGrid[r][c] === 1 ? 0 : 1;
+    checkWin();
+    render(PATTERNS[currentKey].cell);
+  }
+
+  function onCellMark(r, c) {
+    if (solved) return;
+    userGrid[r][c] = userGrid[r][c] === 2 ? 0 : 2;
+    render(PATTERNS[currentKey].cell);
+  }
+
+  function checkWin() {
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const isFilled = userGrid[r][c] === 1;
+        const shouldBeFilled = solution[r][c] === 1;
+        if (isFilled !== shouldBeFilled) return;
+      }
+    }
+    solved = true;
+    doorEl.classList.add('solved');
+    statusEl.classList.add('show');
+    setTimeout(() => doorOverlay.classList.add('active'), 300);
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', () => newGame(currentKey));
+  document.getElementById('continueBtn').addEventListener('click', () => doorOverlay.classList.remove('active'));
+
+  diffRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...diffRow.children].forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    newGame(btn.dataset.pattern);
+  });
+
+  newGame(currentKey);
+</script>
+
+</body>
+</html>
