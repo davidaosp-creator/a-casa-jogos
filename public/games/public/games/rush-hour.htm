@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O Engarrafamento — Rush Hour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #12100D;
+    --panel: #1D1812;
+    --panel-edge: #2A2118;
+    --board-bg: #241D16;
+    --grid-line: #34291F;
+    --success: #7CB88F;
+    --success-soft: #7CB88F33;
+    --target-car: #C1443B;
+    --target-car-edge: #E0655B;
+    --text-warm: #EFE6D8;
+    --text-dim2: #a99987;
+    --amber: #F2A83B;
+    --amber-soft: #F2A83B55;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--void);
+    background-image: radial-gradient(ellipse 80% 60% at 50% -10%, #2a2118 0%, transparent 60%);
+    color: var(--text-warm);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .rig {
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: clamp(22px, 5vw, 30px);
+    letter-spacing: 0.03em;
+    margin: 0;
+    text-align: center;
+  }
+
+  .subtitle {
+    margin-top: -8px;
+    font-size: 13px;
+    color: var(--text-dim2);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 340px;
+  }
+
+  .diff-row { display: flex; gap: 6px; }
+
+  .diff-row button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--panel-edge);
+    color: var(--text-dim2);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .diff-row button.selected {
+    color: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .door {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    padding: 18px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 0 0 6px var(--void), inset 0 1px 0 #ffffff08;
+    transition: box-shadow 0.6s ease;
+  }
+
+  .door.solved {
+    box-shadow: 0 0 0 6px var(--void), 0 0 40px var(--success-soft), inset 0 1px 0 #ffffff08;
+  }
+
+  .board-wrap {
+    position: relative;
+  }
+
+  .board {
+    display: grid;
+    gap: 4px;
+    background: var(--board-bg);
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid var(--grid-line);
+  }
+
+  .cell {
+    background: #1a1510;
+    border-radius: 2px;
+  }
+
+  .car {
+    position: absolute;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 #ffffff25, 0 2px 5px #00000060;
+    border: 2px solid transparent;
+    transition: border-color 0.15s ease, filter 0.15s ease;
+  }
+
+  .car.selected {
+    border-color: var(--text-warm);
+    filter: brightness(1.12);
+  }
+
+  .car.target { background: var(--target-car); }
+
+  .exit-marker {
+    position: absolute;
+    right: -22px;
+    width: 16px;
+    height: 4px;
+    background: var(--amber);
+    box-shadow: 0 0 10px var(--amber-soft);
+    border-radius: 2px;
+  }
+
+  .status {
+    min-height: 20px;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    text-align: center;
+    color: var(--success);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .status.show { opacity: 1; }
+
+  .legend {
+    font-size: 11px;
+    color: var(--text-dim2);
+    text-align: center;
+  }
+
+  .hud {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-dim2);
+  }
+
+  .hud .value { color: var(--text-warm); font-weight: 500; }
+
+  .controls { display: flex; gap: 10px; width: 100%; }
+
+  button.action {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-warm);
+    border: 1px solid var(--panel-edge);
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  button.action:hover { border-color: var(--amber); background: #ffffff06; }
+
+  .door-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    background: #000000aa;
+    transition: opacity 0.3s ease;
+    z-index: 50;
+  }
+
+  .door-overlay.active { opacity: 1; pointer-events: auto; }
+
+  .door-leaf {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: linear-gradient(180deg, var(--grid-line) 0%, #201810 100%);
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 0 30px #000000aa;
+    transition: transform 1s cubic-bezier(.6,0,.25,1);
+  }
+
+  .door-leaf.left { left: 0; transform-origin: left; }
+  .door-leaf.right { right: 0; transform-origin: right; }
+  .door-overlay.active .door-leaf.left { transform: translateX(-100%); }
+  .door-overlay.active .door-leaf.right { transform: translateX(100%); }
+
+  .door-light {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 40% 60% at 50% 50%, var(--success-soft) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 1s ease 0.4s;
+  }
+
+  .door-overlay.active .door-light { opacity: 1; }
+
+  .door-message {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.6s ease 0.9s, transform 0.6s ease 0.9s;
+  }
+
+  .door-overlay.active .door-message { opacity: 1; transform: translateY(0); }
+
+  .door-message h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--text-warm);
+    letter-spacing: 0.04em;
+    font-size: 22px;
+    margin: 0 0 18px;
+  }
+
+  .door-message button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-warm);
+    border: 1px solid var(--success);
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .door-message button:hover { background: var(--success-soft); }
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <h1>O Engarrafamento</h1>
+  <p class="subtitle">Tire o veículo vermelho pela saída à direita. Cada carro só anda na própria direção — nunca atravessa outro.</p>
+
+  <div class="diff-row" id="diffRow">
+    <button data-level="easy">fácil</button>
+    <button data-level="medium" class="selected">médio</button>
+    <button data-level="hard">difícil</button>
+  </div>
+
+  <div class="door" id="door">
+    <div class="board-wrap" id="boardWrap">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <p class="legend">clique num carro pra selecionar, depois clique numa célula livre na mesma linha/coluna pra deslizar</p>
+
+  <div class="status" id="status">via liberada</div>
+
+  <div class="hud">
+    <span>movimentos: <span class="value" id="moves">0</span></span>
+  </div>
+
+  <div class="controls">
+    <button class="action" id="resetBtn">reiniciar</button>
+  </div>
+</div>
+
+<div class="door-overlay" id="doorOverlay">
+  <div class="door-leaf left"></div>
+  <div class="door-leaf right"></div>
+  <div class="door-light"></div>
+  <div class="door-message">
+    <h2>A porta se abre</h2>
+    <button id="continueBtn">fechar</button>
+  </div>
+</div>
+
+<script>
+  const BOARD_SIZE = 6;
+  const CELL = 52;
+  const GAP = 4;
+
+  const LEVELS = {
+    easy: [
+      { o: 'h', len: 2, r: 2, c: 0 },
+      { o: 'v', len: 2, r: 2, c: 3 },
+      { o: 'v', len: 2, r: 0, c: 1 },
+    ],
+    medium: [
+      { o: 'h', len: 2, r: 2, c: 0 },
+      { o: 'v', len: 3, r: 0, c: 2 },
+      { o: 'v', len: 2, r: 2, c: 4 },
+      { o: 'h', len: 2, r: 0, c: 3 },
+      { o: 'h', len: 2, r: 4, c: 2 },
+      { o: 'v', len: 2, r: 3, c: 1 },
+      { o: 'v', len: 3, r: 3, c: 5 },
+    ],
+    hard: [
+      { o: 'h', len: 2, r: 2, c: 0 },
+      { o: 'v', len: 3, r: 0, c: 2 },
+      { o: 'v', len: 2, r: 2, c: 4 },
+      { o: 'h', len: 2, r: 0, c: 3 },
+      { o: 'h', len: 2, r: 4, c: 2 },
+      { o: 'v', len: 2, r: 3, c: 1 },
+      { o: 'v', len: 3, r: 3, c: 5 },
+      { o: 'h', len: 3, r: 5, c: 0 },
+      { o: 'v', len: 2, r: 0, c: 0 },
+    ],
+  };
+
+  const PALETTE = ['#3E6FA8', '#4C9A6B', '#D9A63E', '#8B5FA3', '#6b7f8f', '#a6763f', '#5c8a7a', '#7a6ba6'];
+
+  let currentLevel = 'medium';
+  let cars = [];
+  let selected = null;
+  let moveCount = 0;
+  let solved = false;
+  let winCol = 4;
+
+  const boardEl = document.getElementById('board');
+  const boardWrap = document.getElementById('boardWrap');
+  const doorEl = document.getElementById('door');
+  const statusEl = document.getElementById('status');
+  const movesEl = document.getElementById('moves');
+  const diffRow = document.getElementById('diffRow');
+  const doorOverlay = document.getElementById('doorOverlay');
+
+  function cellsFor(car) {
+    const out = [];
+    for (let i = 0; i < car.len; i++) {
+      out.push(car.o === 'h' ? [car.r, car.c + i] : [car.r + i, car.c]);
+    }
+    return out;
+  }
+
+  function occupiedBy(excludeIdx) {
+    const map = new Map();
+    cars.forEach((car, i) => {
+      if (i === excludeIdx) return;
+      cellsFor(car).forEach(([r, c]) => map.set(r + ',' + c, i));
+    });
+    return map;
+  }
+
+  function newGame(levelKey) {
+    currentLevel = levelKey;
+    cars = LEVELS[levelKey].map(c => ({ ...c }));
+    winCol = BOARD_SIZE - cars[0].len;
+    selected = null;
+    moveCount = 0;
+    solved = false;
+    doorEl.classList.remove('solved');
+    doorOverlay.classList.remove('active');
+    statusEl.classList.remove('show');
+    movesEl.textContent = 0;
+    render();
+  }
+
+  function render() {
+    boardEl.style.gridTemplateColumns = `repeat(${BOARD_SIZE}, ${CELL}px)`;
+    boardEl.style.gridTemplateRows = `repeat(${BOARD_SIZE}, ${CELL}px)`;
+    boardEl.innerHTML = '';
+    for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = Math.floor(i / BOARD_SIZE);
+      cell.dataset.c = i % BOARD_SIZE;
+      cell.addEventListener('click', () => onCellClick(+cell.dataset.r, +cell.dataset.c));
+      boardEl.appendChild(cell);
+    }
+
+    document.querySelectorAll('.car, .exit-marker').forEach(el => el.remove());
+
+    cars.forEach((car, i) => {
+      const el = document.createElement('div');
+      el.className = 'car' + (i === 0 ? ' target' : '') + (selected === i ? ' selected' : '');
+      if (i !== 0) el.style.background = PALETTE[(i - 1) % PALETTE.length];
+      const padding = 6;
+      const top = 6 + car.r * (CELL + GAP);
+      const left = 6 + car.c * (CELL + GAP);
+      const width = car.o === 'h' ? car.len * CELL + (car.len - 1) * GAP : CELL;
+      const height = car.o === 'v' ? car.len * CELL + (car.len - 1) * GAP : CELL;
+      el.style.top = top + 'px';
+      el.style.left = left + 'px';
+      el.style.width = (width - padding) + 'px';
+      el.style.height = (height - padding) + 'px';
+      el.style.marginTop = (padding / 2) + 'px';
+      el.style.marginLeft = (padding / 2) + 'px';
+      el.addEventListener('click', (e) => { e.stopPropagation(); onCarClick(i); });
+      boardWrap.appendChild(el);
+    });
+
+    // marcador de saída, alinhado com a linha do carro-alvo
+    const marker = document.createElement('div');
+    marker.className = 'exit-marker';
+    marker.style.top = (6 + cars[0].r * (CELL + GAP) + CELL / 2 - 2) + 'px';
+    boardWrap.appendChild(marker);
+
+    doorEl.classList.toggle('solved', solved);
+    statusEl.classList.toggle('show', solved);
+  }
+
+  function onCarClick(i) {
+    if (solved) return;
+    selected = selected === i ? null : i;
+    render();
+  }
+
+  function onCellClick(r, c) {
+    if (solved || selected === null) return;
+    attemptMoveTo(selected, r, c);
+  }
+
+  function canStep(idx, dr, dc) {
+    const car = cars[idx];
+    const occ = occupiedBy(idx);
+    const newCar = { ...car, r: car.r + dr, c: car.c + dc };
+    return cellsFor(newCar).every(([r, c]) => {
+      if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) return false;
+      return !occ.has(r + ',' + c);
+    });
+  }
+
+  function attemptMoveTo(idx, targetR, targetC) {
+    const car = cars[idx];
+    let dr = 0, dc = 0;
+    if (car.o === 'h') {
+      if (targetR !== car.r) return;
+      dc = targetC > car.c ? 1 : -1;
+    } else {
+      if (targetC !== car.c) return;
+      dr = targetR > car.r ? 1 : -1;
+    }
+
+    let steps = 0;
+    while (steps < BOARD_SIZE) {
+      const reachedTarget = car.o === 'h' ? car.c === targetC : car.r === targetR;
+      if (reachedTarget) break;
+      if (!canStep(idx, dr, dc)) break;
+      car.r += dr;
+      car.c += dc;
+      steps++;
+      moveCount++;
+    }
+
+    if (steps > 0) {
+      movesEl.textContent = moveCount;
+      selected = null;
+      checkWin();
+    }
+    render();
+  }
+
+  function checkWin() {
+    if (cars[0].c === winCol) {
+      solved = true;
+      setTimeout(() => doorOverlay.classList.add('active'), 300);
+    }
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', () => newGame(currentLevel));
+  document.getElementById('continueBtn').addEventListener('click', () => doorOverlay.classList.remove('active'));
+
+  diffRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...diffRow.children].forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    newGame(btn.dataset.level);
+  });
+
+  newGame(currentLevel);
+</script>
+
+</body>
+</html>
