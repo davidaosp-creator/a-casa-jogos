@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Torre — Torre de Hanói</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #12100D;
+    --panel: #1D1812;
+    --panel-edge: #2A2118;
+    --rod: #4A3F32;
+    --base: #3A322A;
+    --success: #7CB88F;
+    --success-soft: #7CB88F33;
+    --danger: #C1443B;
+    --text-warm: #EFE6D8;
+    --text-dim2: #a99987;
+    --target: #F2A83B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--void);
+    background-image: radial-gradient(ellipse 80% 60% at 50% -10%, #2a2118 0%, transparent 60%);
+    color: var(--text-warm);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .rig {
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: clamp(22px, 5vw, 30px);
+    letter-spacing: 0.03em;
+    margin: 0;
+    text-align: center;
+  }
+
+  .subtitle {
+    margin-top: -8px;
+    font-size: 13px;
+    color: var(--text-dim2);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 340px;
+  }
+
+  .diff-row { display: flex; gap: 6px; }
+
+  .diff-row button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--panel-edge);
+    color: var(--text-dim2);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .diff-row button.selected {
+    color: var(--target);
+    border-color: var(--target);
+  }
+
+  .door {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    padding: 20px 16px 0;
+    width: 100%;
+    box-shadow: 0 0 0 6px var(--void), inset 0 1px 0 #ffffff08;
+    transition: box-shadow 0.6s ease;
+  }
+
+  .door.solved {
+    box-shadow: 0 0 0 6px var(--void), 0 0 40px var(--success-soft), inset 0 1px 0 #ffffff08;
+  }
+
+  .pegs {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 220px;
+    position: relative;
+  }
+
+  .peg {
+    position: relative;
+    width: 33%;
+    height: 100%;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .peg-rod {
+    position: absolute;
+    bottom: 12px;
+    width: 8px;
+    height: 180px;
+    background: var(--rod);
+    border-radius: 3px 3px 0 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 0;
+    transition: background 0.2s ease;
+  }
+
+  .peg.selected .peg-rod { background: var(--target); box-shadow: 0 0 10px var(--target); }
+
+  .peg-base {
+    position: absolute;
+    bottom: 4px;
+    width: 78%;
+    height: 8px;
+    background: var(--base);
+    border-radius: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 0;
+  }
+
+  .disk {
+    position: relative;
+    height: 20px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    z-index: 1;
+    box-shadow: inset 0 1px 0 #ffffff30, 0 2px 4px #00000040;
+    transition: filter 0.15s ease;
+  }
+
+  .peg.selected .disk:last-child {
+    filter: brightness(1.25);
+    box-shadow: 0 0 12px var(--target-soft, #F2A83B88), inset 0 1px 0 #ffffff30;
+  }
+
+  .status {
+    min-height: 20px;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .status.show { opacity: 1; }
+  .status.error { color: var(--danger); }
+
+  .hud {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-dim2);
+  }
+
+  .hud .value { color: var(--text-warm); font-weight: 500; }
+
+  .legend {
+    font-size: 11px;
+    color: var(--text-dim2);
+    text-align: center;
+  }
+
+  .controls { display: flex; gap: 10px; width: 100%; }
+
+  button.action {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-warm);
+    border: 1px solid var(--panel-edge);
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  button.action:hover { border-color: var(--target); background: #ffffff06; }
+
+  .door-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    background: #000000aa;
+    transition: opacity 0.3s ease;
+    z-index: 50;
+  }
+
+  .door-overlay.active { opacity: 1; pointer-events: auto; }
+
+  .door-leaf {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: linear-gradient(180deg, var(--rod) 0%, #201810 100%);
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 0 30px #000000aa;
+    transition: transform 1s cubic-bezier(.6,0,.25,1);
+  }
+
+  .door-leaf.left { left: 0; transform-origin: left; }
+  .door-leaf.right { right: 0; transform-origin: right; }
+  .door-overlay.active .door-leaf.left { transform: translateX(-100%); }
+  .door-overlay.active .door-leaf.right { transform: translateX(100%); }
+
+  .door-light {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 40% 60% at 50% 50%, var(--success-soft) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 1s ease 0.4s;
+  }
+
+  .door-overlay.active .door-light { opacity: 1; }
+
+  .door-message {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.6s ease 0.9s, transform 0.6s ease 0.9s;
+  }
+
+  .door-overlay.active .door-message { opacity: 1; transform: translateY(0); }
+
+  .door-message h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--text-warm);
+    letter-spacing: 0.04em;
+    font-size: 22px;
+    margin: 0 0 18px;
+  }
+
+  .door-message button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-warm);
+    border: 1px solid var(--success);
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .door-message button:hover { background: var(--success-soft); }
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <h1>A Torre</h1>
+  <p class="subtitle">Mova todos os discos para o pino da direita. Só o disco do topo pode ser movido, e nunca sobre um disco menor.</p>
+
+  <div class="diff-row" id="diffRow">
+    <button data-disks="3">fácil (3)</button>
+    <button data-disks="4" class="selected">médio (4)</button>
+    <button data-disks="5">difícil (5)</button>
+  </div>
+
+  <div class="door" id="door">
+    <div class="pegs" id="pegs"></div>
+  </div>
+
+  <p class="legend">clique num pino para selecionar, clique em outro para mover</p>
+
+  <div class="status" id="status"></div>
+
+  <div class="hud">
+    <span>jogadas: <span class="value" id="moves">0</span></span>
+    <span>mínimo teórico: <span class="value" id="minMoves">—</span></span>
+  </div>
+
+  <div class="controls">
+    <button class="action" id="resetBtn">reiniciar</button>
+  </div>
+</div>
+
+<div class="door-overlay" id="doorOverlay">
+  <div class="door-leaf left"></div>
+  <div class="door-leaf right"></div>
+  <div class="door-light"></div>
+  <div class="door-message">
+    <h2>A porta se abre</h2>
+    <button id="continueBtn">fechar</button>
+  </div>
+</div>
+
+<script>
+  let numDisks = 4;
+  let pegsState = [[], [], []];
+  let selectedPeg = null;
+  let moveCount = 0;
+  let solved = false;
+
+  const pegsEl = document.getElementById('pegs');
+  const doorEl = document.getElementById('door');
+  const statusEl = document.getElementById('status');
+  const movesEl = document.getElementById('moves');
+  const minMovesEl = document.getElementById('minMoves');
+  const diffRow = document.getElementById('diffRow');
+  const doorOverlay = document.getElementById('doorOverlay');
+
+  function diskColor(size, total) {
+    // gradiente quente do âmbar ao cobre, do menor pro maior disco
+    const t = (size - 1) / Math.max(1, total - 1);
+    const hue = 40 - t * 25;      // 40 (âmbar) -> 15 (cobre/terracota)
+    const sat = 55 + t * 10;
+    const light = 58 - t * 18;
+    return `hsl(${hue}, ${sat}%, ${light}%)`;
+  }
+
+  function newGame(n) {
+    numDisks = n;
+    pegsState = [Array.from({ length: n }, (_, i) => n - i), [], []];
+    selectedPeg = null;
+    moveCount = 0;
+    solved = false;
+    doorEl.classList.remove('solved');
+    doorOverlay.classList.remove('active');
+    statusEl.className = 'status';
+    statusEl.textContent = '';
+    movesEl.textContent = 0;
+    minMovesEl.textContent = Math.pow(2, n) - 1;
+    render();
+  }
+
+  function render() {
+    pegsEl.innerHTML = '';
+    pegsState.forEach((stack, i) => {
+      const pegEl = document.createElement('div');
+      pegEl.className = 'peg' + (selectedPeg === i ? ' selected' : '');
+      pegEl.addEventListener('click', () => onPegClick(i));
+
+      const rod = document.createElement('div');
+      rod.className = 'peg-rod';
+      pegEl.appendChild(rod);
+
+      const base = document.createElement('div');
+      base.className = 'peg-base';
+      pegEl.appendChild(base);
+
+      stack.forEach(size => {
+        const disk = document.createElement('div');
+        disk.className = 'disk';
+        const widthPct = 30 + (size / numDisks) * 60;
+        disk.style.width = widthPct + '%';
+        disk.style.background = diskColor(size, numDisks);
+        pegEl.appendChild(disk);
+      });
+
+      pegsEl.appendChild(pegEl);
+    });
+  }
+
+  function onPegClick(i) {
+    if (solved) return;
+
+    if (selectedPeg === null) {
+      if (pegsState[i].length === 0) return;
+      selectedPeg = i;
+      statusEl.className = 'status';
+      statusEl.textContent = '';
+      render();
+      return;
+    }
+
+    if (selectedPeg === i) {
+      selectedPeg = null;
+      render();
+      return;
+    }
+
+    const fromStack = pegsState[selectedPeg];
+    const toStack = pegsState[i];
+    const moving = fromStack[fromStack.length - 1];
+    const target = toStack[toStack.length - 1];
+
+    if (target !== undefined && moving > target) {
+      statusEl.textContent = 'não pode colocar um disco maior sobre um menor';
+      statusEl.className = 'status show error';
+      selectedPeg = null;
+      render();
+      return;
+    }
+
+    toStack.push(fromStack.pop());
+    moveCount++;
+    movesEl.textContent = moveCount;
+    selectedPeg = null;
+    statusEl.className = 'status';
+    statusEl.textContent = '';
+
+    if (pegsState[2].length === numDisks) {
+      solved = true;
+      doorEl.classList.add('solved');
+      setTimeout(() => doorOverlay.classList.add('active'), 300);
+    }
+
+    render();
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', () => newGame(numDisks));
+  document.getElementById('continueBtn').addEventListener('click', () => doorOverlay.classList.remove('active'));
+
+  diffRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...diffRow.children].forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    newGame(parseInt(btn.dataset.disks, 10));
+  });
+
+  newGame(numDisks);
+</script>
+
+</body>
+</html>
